@@ -69,7 +69,7 @@ body::before{
   transform:translateY(-0.05em);
 }
 #ms.show{display:inline;}
-#time{cursor:pointer;}
+
 #ampm{
   font-size:0.26em;
   font-weight:500;
@@ -125,7 +125,7 @@ select{
 </style>
 </head>
 <body>
-  <div id="time" title="Nhấn để hiện/ẩn mili giây"><span id="hm">00:00</span>:<span id="sec">00</span><span id="ms"></span></div>
+  <div id="time"><span id="hm">00:00</span>:<span id="sec">00</span><span id="ms"></span></div>
   <div class="info">
     <div id="solar">---</div>
     <div id="lunar">Âm: ---</div>
@@ -147,6 +147,13 @@ select{
         <option value="auto">Tự động</option>
         <option value="light">Sáng</option>
         <option value="dark">Tối</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <label>Mili giây</label>
+      <select id="msToggle">
+        <option value="0">Ẩn</option>
+        <option value="1">Hiện</option>
       </select>
     </div>
   </div>
@@ -197,6 +204,7 @@ const settings = {
 };
 $('fmt').value = settings.fmt;
 $('theme').value = settings.theme;
+$('msToggle').value = settings.ms ? '1' : '0';
 if(settings.ms) $('ms').classList.add('show');
 
 function applyTheme(){
@@ -351,9 +359,9 @@ function startTimer(){
 updateFull();
 startTimer();
 
-// Toggle milliseconds on time click
-$('time').onclick = function(){
-  settings.ms = !settings.ms;
+// Toggle milliseconds from toolbar
+$('msToggle').onchange = function(){
+  settings.ms = this.value === '1';
   localStorage.setItem('clock_ms', settings.ms ? '1' : '0');
   startTimer();
   updateFull();
