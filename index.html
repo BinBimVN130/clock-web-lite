@@ -77,6 +77,14 @@ body::before{
 }
 #ms.show{display:inline;}
 #fxTypeCtrl{display:none;}
+.ctrl-group{
+  display:flex;align-items:center;gap:0.8rem;
+  padding:0.25rem 0.7rem;
+  border-left:2px solid rgba(128,128,128,0.35);
+  border-right:2px solid rgba(128,128,128,0.35);
+  margin:0 0.15rem;
+}
+#s.hidden, .colon-s.hidden{display:none !important;}
 
 #ampm{
   font-size:0.26em;
@@ -160,7 +168,7 @@ select{
 </style>
 </head>
 <body>
-  <div id="time"><span id="h">00</span>:<span id="m">00</span>:<span id="s">00</span><span id="ms"></span></div>
+  <div id="time"><span id="h">00</span>:<span id="m">00</span><span class="colon-s">:</span><span id="s">00</span><span id="ms"></span></div>
   <div class="info">
     <div id="solar">---</div>
     <div id="lunar">Âm: ---</div>
@@ -192,22 +200,31 @@ select{
       </select>
     </div>
     <div class="ctrl">
-      <label>Hiệu ứng</label>
-      <select id="fxToggle">
-        <option value="1">Bật</option>
-        <option value="0">Tắt</option>
+      <label>Giây</label>
+      <select id="secToggle">
+        <option value="1">Hiện</option>
+        <option value="0">Ẩn</option>
       </select>
     </div>
-    <div class="ctrl" id="fxTypeCtrl">
-      <label>Kiểu</label>
-      <select id="fxType">
-        <option value="jump">Nhảy</option>
-        <option value="fade">Mờ</option>
-      </select>
+    <div class="ctrl-group">
+      <div class="ctrl">
+        <label>Hiệu ứng</label>
+        <select id="fxToggle">
+          <option value="1">Bật</option>
+          <option value="0">Tắt</option>
+        </select>
+      </div>
+      <div class="ctrl" id="fxTypeCtrl">
+        <label>Kiểu</label>
+        <select id="fxType">
+          <option value="jump">Nhảy</option>
+          <option value="fade">Mờ</option>
+        </select>
+      </div>
     </div>
   </div>
   <button id="barToggle" title="Hiện/ẩn thanh công cụ" aria-label="Toggle toolbar"><span>▲</span></button>
-  <div class="version" id="version" title="Nhấn để reset">v1.7</div>
+  <div class="version" id="version" title="Nhấn để reset">v1.8</div>
 
 <script>
 /* ===== Lunar (Hồ Ngọc Đức) ===== */
@@ -251,16 +268,22 @@ const settings = {
   fmt: localStorage.getItem('clock_fmt') || '24',
   theme: localStorage.getItem('clock_theme') || 'auto',
   ms: localStorage.getItem('clock_ms') === '1',
+  sec: localStorage.getItem('clock_sec') !== '0',
   fx: localStorage.getItem('clock_fx') !== '0',
   fxType: localStorage.getItem('clock_fxType') || 'jump'
 };
 $('fmt').value = settings.fmt;
 $('theme').value = settings.theme;
 $('msToggle').value = settings.ms ? '1' : '0';
+$('secToggle').value = settings.sec ? '1' : '0';
 $('fxToggle').value = settings.fx ? '1' : '0';
 $('fxType').value = settings.fxType;
 if(settings.ms) $('ms').classList.add('show');
 if(settings.fx) $('fxTypeCtrl').style.display = 'flex';
+if(!settings.sec){
+  $('s').classList.add('hidden');
+  document.querySelector('.colon-s').classList.add('hidden');
+}
 
 function applyTheme(){
   let t = settings.theme;
@@ -437,6 +460,31 @@ $('msToggle').onchange = function(){
   updateFull();
 };
 
+// Toggle seconds
+$('secToggle').onchange = function(){
+  settings.sec = this.value === '1';
+  localStorage.setItem('clock_sec', settings.sec ? '1' : '0');
+  const sEl = $('s');
+  const colon = document.querySelector('.colon-s');
+  if(settings.sec){
+    sEl.classList.remove('hidden');
+    colon.classList.remove('hidden');
+  } else {
+    sEl.classList.add('hidden');
+    colon.classList.add('hidden');
+    // also hide ms when sec is hidden
+    if(settings.ms){
+      settings.ms = false;
+      localStorage.setItem('clock_ms','0');
+      $('msToggle').value = '0';
+      $('ms').classList.remove('show');
+      $('ms').textContent = '';
+      startTimer();
+    }
+  }
+  updateFull();
+};
+
 // Effect on/off
 $('fxToggle').onchange = function(){
   settings.fx = this.value === '1';
@@ -467,6 +515,7 @@ $("version").onclick = function(){
   localStorage.removeItem("clock_ms");
   localStorage.removeItem("clock_fx");
   localStorage.removeItem("clock_fxType");
+  localStorage.removeItem("clock_sec");
   alert("Trang web này cho biết (reset thành công)");
   location.reload();
 };
