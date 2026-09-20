@@ -117,6 +117,13 @@ body::before{
   font-size:0.9rem;
   border-top:1px solid rgba(128,128,128,0.2);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  transform:translateY(100%);
+  transition:transform 0.25s ease;
+  pointer-events:none;
+}
+.controls.show{
+  transform:translateY(0);
+  pointer-events:auto;
 }
 .ctrl{display:flex;align-items:center;gap:0.4rem}
 .ctrl label{opacity:0.85;white-space:nowrap}
@@ -130,6 +137,26 @@ select{
   position:fixed;bottom:0.55rem;right:0.8rem;
   font-size:0.72rem;opacity:0.4;z-index:21;cursor:pointer;
 }
+#barToggle{
+  position:fixed;
+  bottom:0.4rem;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:30;
+  width:48px;height:28px;
+  border:none;
+  border-radius:12px;
+  background:rgba(128,128,128,0.4);
+  color:var(--text);
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;
+  opacity:0.75;
+  transition:bottom 0.25s ease, opacity 0.2s, background 0.2s;
+}
+#barToggle:hover{opacity:1;background:rgba(128,128,128,0.55)}
+#barToggle.open{bottom:3.6rem}
+#barToggle span{display:block;line-height:1}
 </style>
 </head>
 <body>
@@ -179,6 +206,7 @@ select{
       </select>
     </div>
   </div>
+  <button id="barToggle" title="Hiện/ẩn thanh công cụ" aria-label="Toggle toolbar"><span>▲</span></button>
   <div class="version" id="version" title="Nhấn để reset">v1.7</div>
 
 <script>
@@ -420,6 +448,15 @@ $('fxToggle').onchange = function(){
 $('fxType').onchange = function(){
   settings.fxType = this.value;
   localStorage.setItem('clock_fxType', settings.fxType);
+};
+
+// Toolbar toggle (always start hidden)
+const bar = document.querySelector('.controls');
+const barBtn = $('barToggle');
+barBtn.onclick = function(){
+  const open = bar.classList.toggle('show');
+  barBtn.classList.toggle('open', open);
+  barBtn.querySelector('span').textContent = open ? '▼' : '▲';
 };
 
 $("version").onclick = function(){
