@@ -46,17 +46,24 @@ body::before{
   display:flex;align-items:baseline;justify-content:center;
 }
 [data-theme="dark"] #time{text-shadow:0 2px 16px rgba(0,0,0,0.4)}
-#sec{
+#h, #m, #s{
   display:inline-block;
-  transition: none;
 }
-#sec.pull{
-  animation: secPull 0.28s ease-out;
+#h.jump, #m.jump, #s.jump{
+  animation: digitJump 0.28s ease-out;
 }
-@keyframes secPull{
+#h.fade, #m.fade, #s.fade{
+  animation: digitFade 0.32s ease-out;
+}
+@keyframes digitJump{
   0%{transform:translateY(0);opacity:1}
   35%{transform:translateY(0.18em);opacity:0.55}
   100%{transform:translateY(0);opacity:1}
+}
+@keyframes digitFade{
+  0%{opacity:1}
+  40%{opacity:0.15}
+  100%{opacity:1}
 }
 #ms{
   display:none;
@@ -69,6 +76,7 @@ body::before{
   transform:translateY(-0.05em);
 }
 #ms.show{display:inline;}
+#fxTypeCtrl{display:none;}
 
 #ampm{
   font-size:0.26em;
@@ -125,7 +133,7 @@ select{
 </style>
 </head>
 <body>
-  <div id="time"><span id="hm">00:00</span>:<span id="sec">00</span><span id="ms"></span></div>
+  <div id="time"><span id="h">00</span>:<span id="m">00</span>:<span id="s">00</span><span id="ms"></span></div>
   <div class="info">
     <div id="solar">---</div>
     <div id="lunar">Âm: ---</div>
@@ -156,8 +164,22 @@ select{
         <option value="1">Hiện</option>
       </select>
     </div>
+    <div class="ctrl">
+      <label>Hiệu ứng</label>
+      <select id="fxToggle">
+        <option value="1">Bật</option>
+        <option value="0">Tắt</option>
+      </select>
+    </div>
+    <div class="ctrl" id="fxTypeCtrl">
+      <label>Kiểu</label>
+      <select id="fxType">
+        <option value="jump">Nhảy</option>
+        <option value="fade">Mờ</option>
+      </select>
+    </div>
   </div>
-  <div class="version" id="version" title="Nhấn để reset">v1.6</div>
+  <div class="version" id="version" title="Nhấn để reset">v1.7</div>
 
 <script>
 /* ===== Lunar (Hồ Ngọc Đức) ===== */
@@ -200,12 +222,17 @@ const $ = id => document.getElementById(id);
 const settings = {
   fmt: localStorage.getItem('clock_fmt') || '24',
   theme: localStorage.getItem('clock_theme') || 'auto',
-  ms: localStorage.getItem('clock_ms') === '1'
+  ms: localStorage.getItem('clock_ms') === '1',
+  fx: localStorage.getItem('clock_fx') !== '0',
+  fxType: localStorage.getItem('clock_fxType') || 'jump'
 };
 $('fmt').value = settings.fmt;
 $('theme').value = settings.theme;
 $('msToggle').value = settings.ms ? '1' : '0';
+$('fxToggle').value = settings.fx ? '1' : '0';
+$('fxType').value = settings.fxType;
 if(settings.ms) $('ms').classList.add('show');
+if(settings.fx) $('fxTypeCtrl').style.display = 'flex';
 
 function applyTheme(){
   let t = settings.theme;
@@ -269,21 +296,25 @@ function findEvents(solarY, solarM, solarD, lunarD, lunarM){
 }
 
 let timerId = null;
-let lastSec = -1;
+let lastH = -1, lastM = -1, lastS = -1;
+
+function triggerAnim(el){
+  if(!settings.fx || !el) return;
+  const cls = settings.fxType === 'fade' ? 'fade' : 'jump';
+  el.classList.remove('jump','fade');
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
 
 function updateTimeOnly(){
   const vn = getVNDate();
-  const h = vn.getHours(), mi = vn.getMinutes(), s = vn.getSeconds();
+  let h = vn.getHours(), mi = vn.getMinutes(), s = vn.getSeconds();
   const ms = vn.getMilliseconds();
 
-  const secEl = $('sec');
-  const newSec = String(s).padStart(2,'0');
-
+  let displayH = h;
   if(settings.fmt === '12'){
     const ap = h >= 12 ? 'PM' : 'AM';
-    const h12 = h % 12 || 12;
-    $('hm').textContent = `${String(h12).padStart(2,'0')}:${String(mi).padStart(2,'0')}`;
-    secEl.textContent = newSec;
+    displayH = h % 12 || 12;
     let ampm = document.getElementById('ampm');
     if(!ampm){
       ampm = document.createElement('span');
@@ -292,11 +323,30 @@ function updateTimeOnly(){
     }
     ampm.textContent = ap;
   } else {
-    $('hm').textContent = `${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}`;
-    secEl.textContent = newSec;
     const ampm = document.getElementById('ampm');
     if(ampm) ampm.remove();
   }
+
+  const hStr = String(displayH).padStart(2,'0');
+  const mStr = String(mi).padStart(2,'0');
+  const sStr = String(s).padStart(2,'0');
+
+  const hEl = $('h'), mEl = $('m'), sEl = $('s');
+
+  if(hStr !== hEl.textContent){
+    hEl.textContent = hStr;
+    if(lastH !== -1) triggerAnim(hEl);
+  }
+  if(mStr !== mEl.textContent){
+    mEl.textContent = mStr;
+    if(lastM !== -1) triggerAnim(mEl);
+  }
+  if(sStr !== sEl.textContent){
+    sEl.textContent = sStr;
+    if(lastS !== -1) triggerAnim(sEl);
+  }
+
+  lastH = displayH; lastM = mi; lastS = s;
 
   const msEl = $('ms');
   if(settings.ms){
@@ -306,14 +356,6 @@ function updateTimeOnly(){
     msEl.textContent = '';
     msEl.classList.remove('show');
   }
-
-  // pull animation only when second changes
-  if(s !== lastSec && lastSec !== -1){
-    secEl.classList.remove('pull');
-    void secEl.offsetWidth;
-    secEl.classList.add('pull');
-  }
-  lastSec = s;
 }
 
 function updateFull(){
@@ -367,12 +409,27 @@ $('msToggle').onchange = function(){
   updateFull();
 };
 
+// Effect on/off
+$('fxToggle').onchange = function(){
+  settings.fx = this.value === '1';
+  localStorage.setItem('clock_fx', settings.fx ? '1' : '0');
+  $('fxTypeCtrl').style.display = settings.fx ? 'flex' : 'none';
+};
+
+// Effect type
+$('fxType').onchange = function(){
+  settings.fxType = this.value;
+  localStorage.setItem('clock_fxType', settings.fxType);
+};
+
 $("version").onclick = function(){
   localStorage.removeItem("clock_fmt");
   localStorage.removeItem("clock_theme");
   localStorage.removeItem("clock_bg");
   localStorage.removeItem("clock_bg_shown");
   localStorage.removeItem("clock_ms");
+  localStorage.removeItem("clock_fx");
+  localStorage.removeItem("clock_fxType");
   alert("Trang web này cho biết (reset thành công)");
   location.reload();
 };
