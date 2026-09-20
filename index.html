@@ -58,6 +58,18 @@ body::before{
   35%{transform:translateY(0.18em);opacity:0.55}
   100%{transform:translateY(0);opacity:1}
 }
+#ms{
+  display:none;
+  font-size:0.38em;
+  font-weight:500;
+  opacity:0.55;
+  margin-left:0.12em;
+  letter-spacing:0.02em;
+  vertical-align:baseline;
+  transform:translateY(-0.05em);
+}
+#ms.show{display:inline;}
+#time{cursor:pointer;}
 #ampm{
   font-size:0.26em;
   font-weight:500;
@@ -113,7 +125,7 @@ select{
 </style>
 </head>
 <body>
-  <div id="time"><span id="hm">00:00</span>:<span id="sec">00</span></div>
+  <div id="time" title="Nhấn để hiện/ẩn mili giây"><span id="hm">00:00</span>:<span id="sec">00</span><span id="ms"></span></div>
   <div class="info">
     <div id="solar">---</div>
     <div id="lunar">Âm: ---</div>
@@ -138,7 +150,7 @@ select{
       </select>
     </div>
   </div>
-  <div class="version" id="version" title="Nhấn để reset">1.5</div>
+  <div class="version" id="version" title="Nhấn để reset">v1.6</div>
 
 <script>
 /* ===== Lunar (Hồ Ngọc Đức) ===== */
@@ -180,10 +192,12 @@ const LUNAR_EVENTS=[
 const $ = id => document.getElementById(id);
 const settings = {
   fmt: localStorage.getItem('clock_fmt') || '24',
-  theme: localStorage.getItem('clock_theme') || 'auto'
+  theme: localStorage.getItem('clock_theme') || 'auto',
+  ms: localStorage.getItem('clock_ms') === '1'
 };
 $('fmt').value = settings.fmt;
 $('theme').value = settings.theme;
+if(settings.ms) $('ms').classList.add('show');
 
 function applyTheme(){
   let t = settings.theme;
@@ -246,13 +260,15 @@ function findEvents(solarY, solarM, solarD, lunarD, lunarM){
   return {today, nextName, nextDate};
 }
 
-function update(){
+let timerId = null;
+let lastSec = -1;
+
+function updateTimeOnly(){
   const vn = getVNDate();
   const h = vn.getHours(), mi = vn.getMinutes(), s = vn.getSeconds();
-  const y = vn.getFullYear(), m = vn.getMonth()+1, d = vn.getDate();
+  const ms = vn.getMilliseconds();
 
   const secEl = $('sec');
-  const prevSec = secEl.textContent;
   const newSec = String(s).padStart(2,'0');
 
   if(settings.fmt === '12'){
@@ -260,7 +276,6 @@ function update(){
     const h12 = h % 12 || 12;
     $('hm').textContent = `${String(h12).padStart(2,'0')}:${String(mi).padStart(2,'0')}`;
     secEl.textContent = newSec;
-    // keep ampm if needed
     let ampm = document.getElementById('ampm');
     if(!ampm){
       ampm = document.createElement('span');
@@ -275,13 +290,28 @@ function update(){
     if(ampm) ampm.remove();
   }
 
-  // pull animation only when second changes
-  if(prevSec !== newSec && prevSec !== '--'){
-    secEl.classList.remove('pull');
-    void secEl.offsetWidth; // reflow
-    secEl.classList.add('pull');
-
+  const msEl = $('ms');
+  if(settings.ms){
+    msEl.textContent = '.' + String(ms).padStart(3,'0');
+    msEl.classList.add('show');
+  } else {
+    msEl.textContent = '';
+    msEl.classList.remove('show');
   }
+
+  // pull animation only when second changes
+  if(s !== lastSec && lastSec !== -1){
+    secEl.classList.remove('pull');
+    void secEl.offsetWidth;
+    secEl.classList.add('pull');
+  }
+  lastSec = s;
+}
+
+function updateFull(){
+  updateTimeOnly();
+  const vn = getVNDate();
+  const y = vn.getFullYear(), m = vn.getMonth()+1, d = vn.getDate();
 
   $('solar').textContent = `${days[vn.getDay()]} ngày ${String(d).padStart(2,'0')} tháng ${m} năm ${y}`;
 
@@ -301,14 +331,40 @@ function update(){
   if(settings.theme === 'auto') applyTheme();
 }
 
-update();
-setInterval(update, 1000);
+function update(){
+  if(settings.ms) updateTimeOnly();
+  else updateFull();
+}
+
+let fullTimerId = null;
+
+function startTimer(){
+  if(timerId) clearInterval(timerId);
+  if(fullTimerId) clearInterval(fullTimerId);
+  if(settings.ms){
+    timerId = setInterval(updateTimeOnly, 50);
+    fullTimerId = setInterval(updateFull, 1000);
+  } else {
+    timerId = setInterval(updateFull, 1000);
+  }
+}
+updateFull();
+startTimer();
+
+// Toggle milliseconds on time click
+$('time').onclick = function(){
+  settings.ms = !settings.ms;
+  localStorage.setItem('clock_ms', settings.ms ? '1' : '0');
+  startTimer();
+  updateFull();
+};
 
 $("version").onclick = function(){
   localStorage.removeItem("clock_fmt");
   localStorage.removeItem("clock_theme");
   localStorage.removeItem("clock_bg");
   localStorage.removeItem("clock_bg_shown");
+  localStorage.removeItem("clock_ms");
   alert("Trang web này cho biết (reset thành công)");
   location.reload();
 };
